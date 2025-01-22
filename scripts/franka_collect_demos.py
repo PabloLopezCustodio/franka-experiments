@@ -13,10 +13,10 @@ from geometry_msgs.msg import PoseStamped
 from franka_msgs.msg import ErrorRecoveryAction, ErrorRecoveryActionGoal, FrankaState
 from moveit_msgs.msg import Constraints, OrientationConstraint, JointConstraint
 
+N_DEMOS = 30  # number of demonstrations to be collected
+RAND_START = True  # randomise the start configuration of the robot for each demonstration
+SAVE_FRAME_8 = False  # save the pose frame 8 instead of frame E.
 
-N_DEMOS = 30 # number of demonstrations to be collected
-RAND_START = True # randomise the start configuration of the robot for each demonstration
-SAVE_FRAME_8 = False # save the pose frame 8 instead of frame E.
 
 class FrankaRobot(object):
 	def __init__(self):
@@ -30,14 +30,13 @@ class FrankaRobot(object):
 		self.move_group.set_max_velocity_scaling_factor(1)
 		self.move_group.set_max_acceleration_scaling_factor(1)
 		self.constraints = Constraints()
-		self.pub_recover = rospy.Publisher('/franka_control/error_recovery/goal', 
-										ErrorRecoveryActionGoal, 
-										queue_size=10)
-		self.sub_state = rospy.Subscriber('/franka_state_controller/franka_states', 
-										FrankaState, 
-										self.state_callback)
+		self.pub_recover = rospy.Publisher('/franka_control/error_recovery/goal',
+										   ErrorRecoveryActionGoal,
+										   queue_size=10)
+		self.sub_state = rospy.Subscriber('/franka_state_controller/franka_states',
+										  FrankaState,
+										  self.state_callback)
 		self.robot_state = None
-
 
 	def get_robot_joint_state(self):
 		robot_state = self.robot.get_current_state().joint_state.position
@@ -49,9 +48,9 @@ class FrankaRobot(object):
 
 	def go_to_joint_state(self, joint_goal):
 		self.move_group.go(joint_goal, wait=True)
-		self.move_group.stop() 
+		self.move_group.stop()
 
-	def go_to_task_state(self,position,quaternion):
+	def go_to_task_state(self, position, quaternion):
 		p = PoseStamped()
 		p.header.frame_id = '/panda_link0'
 		p.pose.position.x = position[0]
@@ -72,8 +71,8 @@ class FrankaRobot(object):
 
 	def constrain_joint(self, joint_name, value, tolerance):
 		# joint names start at panda_joint1
-		if not(value):
-			value = self.get_robot_joint_state()[int(joint_name[-1])-1]
+		if not (value):
+			value = self.get_robot_joint_state()[int(joint_name[-1]) - 1]
 		joint_constraint = JointConstraint()
 		joint_constraint.joint_name = joint_name
 		joint_constraint.position = value
@@ -81,8 +80,7 @@ class FrankaRobot(object):
 		joint_constraint.tolerance_below = tolerance
 		joint_constraint.weight = 1.0
 		self.constraints.joint_constraints.append(joint_constraint)
-		self.move_group.set_path_constraints(self.constraints)		
-
+		self.move_group.set_path_constraints(self.constraints)
 
 	def go_home(self):
 		# joint space home:
@@ -99,7 +97,7 @@ class FrankaRobot(object):
 		ogoal = [0.9238795, -0.3826834, 0, 0]
 		pgoal = [0.40, 0.0, 0.70]
 		self.move_group.clear_path_constraints()
-		self.constrain_joint('panda_joint1', 0.0, 5.0*pi/180.0)
+		self.constrain_joint('panda_joint1', 0.0, 5.0 * pi / 180.0)
 		robot.go_to_task_state(pgoal, ogoal)
 		self.clear_constraints()
 
@@ -108,7 +106,7 @@ class FrankaRobot(object):
 
 	def reset_controller(self):
 		print('recovering...')
-		rate = rospy.Rate(10) # 10hz
+		rate = rospy.Rate(10)  # 10hz
 		# publish during 3 seconds as recommended
 		for i in range(0, 40):
 			self.pub_recover.publish(ErrorRecoveryActionGoal())
@@ -149,7 +147,7 @@ if __name__ == '__main__':
 
 	for demo in range(N_DEMOS):
 		if RAND_START:
-			robot.go_to_joint_state(joint_start + np.random.normal(0, 0.1, 7)) # maximum disturbance is 0.1 radians
+			robot.go_to_joint_state(joint_start + np.random.normal(0, 0.1, 7))  # maximum disturbance is 0.1 radians
 		else:
 			robot.go_to_joint_state(joint_start)
 		print('initial configuration:', robot.robot_state.q)
@@ -178,12 +176,12 @@ if __name__ == '__main__':
 			else:
 				poses.append(TOE.tolist())
 			joints.append(states[j].q)
-			times.append(states[j].header.stamp.secs + states[j].header.stamp.nsecs*1e-9)
-		with open(os.path.join("demonstrations", f"trajectory_{demo+1}.json"), "w") as outfile:
+			times.append(states[j].header.stamp.secs + states[j].header.stamp.nsecs * 1e-9)
+		with open(os.path.join("demonstrations", f"trajectory_{demo + 1}.json"), "w") as outfile:
 			json.dump({"TOE_traj": poses,
 					   "joints_traj": joints,
 					   "timestamps": times}, outfile)
-		print(f"\n\ndemostration {demo+1} saved \n")
+		print(f"\n\ndemostration {demo + 1} saved \n")
 		input("deactivate External Activation button \npress Enter")
 		# reset robot mode
 		robot.reset_controller()
